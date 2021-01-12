@@ -1,4 +1,8 @@
 # Based on file in ppo.py
+import time
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,10 +15,10 @@ from tutorials.utils import plotting
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 ############## Hyperparameters ##############
-solved_reward = 230  # stop training if avg_reward > solved_reward #todo check rewards
+solved_reward = 10_000  # stop training if avg_reward > solved_reward #todo check rewards
 log_interval = 10  # print avg reward in the interval
 max_episodes = 50000  # max training episodes
-max_timesteps = 300  # max timesteps in one episode
+graphical_episode_log_frequency = 10
 n_latent_var = 256  # number of variables in hidden layer
 update_timestep = 2000  # update policy every n timesteps
 lr = 0.001
@@ -125,6 +129,8 @@ def sample_random_actions(env, obs):
 
 
 def main():
+    log_dir = Path(__file__).parent / f"exp{int(time.time())}"
+    log_dir.mkdir()
     env = foundation.make_env_instance(**env_config)
     state = env.reset()
 
@@ -153,7 +159,7 @@ def main():
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
-        if i_episode == 1_000:
+        if i_episode % graphical_episode_log_frequency == 0:
             obs = env.reset(force_dense_logging=True)
         else:
             obs = env.reset()
@@ -176,7 +182,7 @@ def main():
             for agent_id in range(env.n_agents):
                 agent_id_str = str(agent_id)
                 memory_agent = memory[agent_id]
-                agent_reward = reward[agent_id_str]
+                agent_reward = -reward[agent_id_str] # TBH NOT SURE
                 memory_agent.rewards.append(agent_reward)
                 memory_agent.is_terminals.append(done)
 
@@ -194,12 +200,12 @@ def main():
         # stop training if avg_reward > solved_reward
         if running_reward > (log_interval * solved_reward):
             print("########## Solved! ##########")
-            torch.save(ppo.policy.state_dict(), './ckpt-final.pth')
+            torch.save(ppo.policy.state_dict(), log_dir / 'ckpt-final.pth')
             break
 
         # save every 500 episodes
         if i_episode % 500 == 0:
-            torch.save(ppo.policy.state_dict(), f'./ckpt-{i_episode}.pth')
+            torch.save(ppo.policy.state_dict(), log_dir / f'ckpt-{i_episode}.pth')
 
         # logging
         if i_episode % log_interval == 0:
@@ -210,10 +216,16 @@ def main():
             running_reward = 0
             avg_length = 0
 
-        if i_episode == 1_000:
+        if i_episode % graphical_episode_log_frequency == 0:
             dense_log = env.previous_episode_dense_log
             (fig0, fig1, fig2), incomes, endows, c_trades, all_builds = plotting.breakdown(dense_log)
             print(f"{incomes=}, {endows=}, {c_trades=}, {all_builds=}")
+            # fig0.savefig(log_dir / f"fig0-{i_episode}.png", dpi=fig0.dpi)
+            fig1.savefig(log_dir / f"fig1-{i_episode}.png", dpi=fig1.dpi)
+            fig2.savefig(log_dir / f"fig2-{i_episode}.png", dpi=fig2.dpi)
+            plt.close(fig0)
+            plt.close(fig1)
+            plt.close(fig2)
 
 
 if __name__ == '__main__':
