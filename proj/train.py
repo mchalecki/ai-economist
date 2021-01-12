@@ -6,6 +6,7 @@ import torch.nn as nn
 from ai_economist import foundation
 from proj.config import env_config
 from proj.model import ActorCritic
+from tutorials.utils import plotting
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -152,9 +153,12 @@ def main():
 
     # training loop
     for i_episode in range(1, max_episodes + 1):
-        obs = env.reset()
+        if i_episode == 1_000:
+            obs = env.reset(force_dense_logging=True)
+        else:
+            obs = env.reset()
 
-        for t in range(max_timesteps):
+        for t in range(env.episode_length):
             time_step += 1
             # Running policy_old:
 
@@ -167,7 +171,7 @@ def main():
                 action = ppo.policy_old.act(agent_state, memory_agent)
                 actions[agent_id_str] = action
 
-            state, reward, done, _ = env.step(actions)
+            state, reward, done, info = env.step(actions)
             # Saving reward and is_terminals:
             for agent_id in range(env.n_agents):
                 agent_id_str = str(agent_id)
@@ -205,6 +209,11 @@ def main():
             print(f'Episode {i_episode} \t Avg length: {avg_length} \t Avg reward: {running_reward}')
             running_reward = 0
             avg_length = 0
+
+        if i_episode == 1_000:
+            dense_log = env.previous_episode_dense_log
+            (fig0, fig1, fig2), incomes, endows, c_trades, all_builds = plotting.breakdown(dense_log)
+            print(f"{incomes=}, {endows=}, {c_trades=}, {all_builds=}")
 
 
 if __name__ == '__main__':
