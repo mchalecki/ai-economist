@@ -1,4 +1,5 @@
 # Based on file in ppo.py
+import pickle
 import time
 from pathlib import Path
 
@@ -15,17 +16,17 @@ from tutorials.utils import plotting
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 ############## Hyperparameters ##############
-solved_reward = 10_000  # stop training if avg_reward > solved_reward #todo check rewards
-log_interval = 10  # print avg reward in the interval
-max_episodes = 50000  # max training episodes
-graphical_episode_log_frequency = 10
-n_latent_var = 256  # number of variables in hidden layer
-update_timestep = 2000  # update policy every n timesteps
+solved_reward = 10_000
+log_interval = 10
+max_episodes = 50000
+graphical_episode_log_frequency = 1
+n_latent_var = 256
+update_timestep = 2000
 lr = 0.001
 betas = (0.9, 0.999)
-gamma = 0.99  # discount factor
-K_epochs = 4  # update policy for K epochs
-eps_clip = 0.2  # clip parameter for PPO
+gamma = 0.99
+K_epochs = 4
+eps_clip = 0.2
 random_seed = None
 
 
@@ -140,14 +141,8 @@ def main():
 
     memory = [Memory() for _ in range(env.n_agents)]
 
-    def get_state(state, agent) -> np.ndarray:
-        obs = np.concatenate(
-            [np.array([v]) if not isinstance(v, np.ndarray) else v.flatten() for k, v in state[agent].items() if
-             k != "time"])
-        return obs
-
     action_dim = state['0']["action_mask"].size  # todo mask tells which action cannot be taken
-    state_dim = get_state(state, '0').size
+    state_dim = state['0']["flat"].size
 
     ppo = PPO(state_dim, action_dim, n_latent_var, lr, betas, gamma, K_epochs, eps_clip, device)
     print(lr, betas)
@@ -173,8 +168,9 @@ def main():
             for agent_id in range(env.n_agents):
                 agent_id_str = str(agent_id)
                 memory_agent = memory[agent_id]
-                agent_state = get_state(state, agent_id_str)
-                action = ppo.policy_old.act(agent_state, memory_agent)
+                action_mask = torch.tensor(state[agent_id_str]["action_mask"], device=device)
+                agent_state = state[agent_id_str]["flat"]
+                action = ppo.policy_old.act(agent_state, memory_agent, action_mask)
                 actions[agent_id_str] = action
 
             state, reward, done, info = env.step(actions)
@@ -221,11 +217,13 @@ def main():
             (fig0, fig1, fig2), incomes, endows, c_trades, all_builds = plotting.breakdown(dense_log)
             print(f"{incomes=}, {endows=}, {c_trades=}, {all_builds=}")
             # fig0.savefig(log_dir / f"fig0-{i_episode}.png", dpi=fig0.dpi)
-            fig1.savefig(log_dir / f"fig1-{i_episode}.png", dpi=fig1.dpi)
-            fig2.savefig(log_dir / f"fig2-{i_episode}.png", dpi=fig2.dpi)
+            fig1.savefig(log_dir / f"fig1-{i_episode:04d}.png", dpi=fig1.dpi)
+            fig2.savefig(log_dir / f"fig2-{i_episode:04d}.png", dpi=fig2.dpi)
             plt.close(fig0)
             plt.close(fig1)
             plt.close(fig2)
+            with open(log_dir / f'logs-{i_episode:04d}.pickle', 'wb') as handle:
+                pickle.dump(dense_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == '__main__':
