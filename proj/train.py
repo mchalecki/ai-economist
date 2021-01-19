@@ -19,10 +19,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 solved_reward = 10_000
 log_interval = 10
 max_episodes = 50000
-graphical_episode_log_frequency = 1
-n_latent_var = 256
+graphical_episode_log_frequency = 10
+n_latent_var = 512
 update_timestep = 2000
-lr = 0.001
+lr = 0.01
 betas = (0.9, 0.999)
 gamma = 0.99
 K_epochs = 4
@@ -70,7 +70,7 @@ class PPO:
             if is_terminal:
                 discounted_reward = 0
             discounted_reward = reward + (self.gamma * discounted_reward)
-            rewards.insert(0, discounted_reward)  # rewards = [discounted_reward, *rewards]
+            rewards.insert(0, discounted_reward)
 
         # Normalizing the rewards:
         rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
@@ -178,7 +178,7 @@ def main():
             for agent_id in range(env.n_agents):
                 agent_id_str = str(agent_id)
                 memory_agent = memory[agent_id]
-                agent_reward = -reward[agent_id_str] # TBH NOT SURE
+                agent_reward = -reward[agent_id_str]
                 memory_agent.rewards.append(agent_reward)
                 memory_agent.is_terminals.append(done)
 

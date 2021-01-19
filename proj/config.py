@@ -39,7 +39,7 @@ env_config = {
 
     # When flattening observations, concatenate scalar & vector observations before output.
     # Otherwise, return observations with minimal processing.
-    'flatten_observations': False,
+    'flatten_observations': True,
     # When Flattening masks, concatenate each action subspace mask into a single array.
     # Note: flatten_masks = True is required for masking action logits in the code below.
     'flatten_masks': True,
