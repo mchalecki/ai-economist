@@ -27,6 +27,7 @@ class ActorCritic(nn.Module):
         )
 
     def forward(self):
+        # for torch nn Module api compatibility only
         raise NotImplementedError
 
     def act(self, state, memory, action_mask=None):
